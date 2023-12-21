@@ -29,9 +29,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := m.filePath + "\n\n"
 
-	for _, entry := range m.list {
-		s += entry.name + "\n"
-	}
+	s += ListView(m.list)
 
 	return s
 }

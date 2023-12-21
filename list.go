@@ -28,3 +28,11 @@ func GetList(path string) List {
 
 	return l
 }
+
+func ListView(l List) string {
+	var s string
+	for _, entry := range l {
+		s += entry.name + "\n"
+	}
+	return s
+}
