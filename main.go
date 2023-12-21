@@ -8,6 +8,7 @@ import (
 
 type model struct {
 	filePath string
+	list List
 }
 
 func (m model) Init() tea.Cmd {
@@ -26,7 +27,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return m.filePath
+	s := m.filePath + "\n\n"
+
+	for _, entry := range m.list {
+		s += entry.name + "\n"
+	}
+
+	return s
 }
 
 func main() {
@@ -38,6 +45,7 @@ func main() {
 
 	m := model{
 		filePath: "...",
+		list: GetList("."),
 	}
 
 	p := tea.NewProgram(m)
