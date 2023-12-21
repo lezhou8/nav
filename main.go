@@ -7,7 +7,7 @@ import (
 )
 
 type model struct {
-	filePath string
+	filePath FilePath
 	list List
 }
 
@@ -27,7 +27,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := m.filePath + "\n\n"
+	s := string(m.filePath) + "\n\n"
 
 	s += ListView(m.list)
 
@@ -42,7 +42,7 @@ func main() {
 	defer f.Close()
 
 	m := model{
-		filePath: "...",
+		filePath: GetFilePath(),
 		list: GetList("."),
 	}
 
