@@ -7,7 +7,7 @@ import (
 )
 
 type model struct {
-	filePath FilePath
+	filePath string
 	list List
 }
 
@@ -21,13 +21,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 				case "q", "ctrl+c":
 					return m, tea.Quit
+				case "up", "k":
+					m.list = m.list.ListGoUp()
+					return m, nil
+				case "down", "j":
+					m.list = m.list.ListGoDown()
+					return m, nil
 			}
 	}
 	return m, nil
 }
 
 func (m model) View() string {
-	s := string(m.filePath) + "\n\n"
+	s := m.filePath + "\n\n"
 
 	s += ListView(m.list)
 

@@ -5,12 +5,10 @@ import (
 	"log"
 )
 
-type FilePath string
-
-func GetFilePath() FilePath {
+func GetFilePath() string {
 	d, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return FilePath(d)
+	return d
 }

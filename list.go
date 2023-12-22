@@ -9,7 +9,10 @@ type Entry struct {
 	name string
 }
 
-type List []Entry
+type List struct {
+	entries []Entry
+	cursor int
+}
 
 func GetList(path string) List {
 	files, err := os.ReadDir(path)
@@ -17,13 +20,16 @@ func GetList(path string) List {
 		log.Panic(err)
 	}
 
-	var l List
+	l := List {
+		entries: []Entry{},
+		cursor: 0,
+	}
 
 	for _, file := range files {
 		entry := Entry {
 			name: file.Name(),
 		}
-		l = append(l, entry)
+		l.entries = append(l.entries, entry)
 	}
 
 	return l
@@ -31,8 +37,38 @@ func GetList(path string) List {
 
 func ListView(l List) string {
 	var s string
-	for _, entry := range l {
-		s += entry.name + "\n"
+	for i, entry := range l.entries {
+		if i == l.cursor {
+			s += "> " + entry.name + "\n"
+		} else {
+			s += "  " + entry.name + "\n"
+		}
 	}
 	return s
+}
+
+func (l List) ListGoUp() List {
+	newCursor := l.cursor - 1
+
+	if newCursor < 0 {
+		return l
+	}
+
+	return List {
+		entries: l.entries,
+		cursor: newCursor,
+	}
+}
+
+func (l List) ListGoDown() List {
+	newCursor := l.cursor + 1
+
+	if newCursor >= len(l.entries) {
+		return l
+	}
+
+	return List {
+		entries: l.entries,
+		cursor: newCursor,
+	}
 }
