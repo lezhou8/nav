@@ -6,38 +6,28 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type model struct {
-	filePath string
-	list List
+type Model struct {
 }
 
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.String() {
 				case "q", "ctrl+c":
 					return m, tea.Quit
 				case "up", "k":
-					m.list = m.list.ListGoUp()
-					return m, nil
 				case "down", "j":
-					m.list = m.list.ListGoDown()
-					return m, nil
 			}
 	}
 	return m, nil
 }
 
-func (m model) View() string {
-	s := m.filePath + "\n\n"
-
-	s += ListView(m.list)
-
-	return s
+func (m Model) View() string {
+	return ""
 }
 
 func main() {
@@ -47,9 +37,7 @@ func main() {
 	}
 	defer f.Close()
 
-	m := model{
-		filePath: GetFilePath(),
-		list: GetList("."),
+	m := Model {
 	}
 
 	p := tea.NewProgram(m)
