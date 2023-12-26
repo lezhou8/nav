@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	// "github.com/charmbracelet/bubbles/key"
@@ -13,6 +15,11 @@ import (
 )
 
 /* rendering */
+
+var (
+	titleEndStyle = lipgloss.NewStyle().Bold(true)
+	titleStyle = titleEndStyle.Copy().Foreground(lipgloss.Color("12"))
+)
 
 type itemDelegate struct{}
 
@@ -27,7 +34,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	}
 
 	str := string(i.name)
-	style := lipgloss.NewStyle().Padding(0, 2)
+	style := lipgloss.NewStyle()
 
 	if i.fileType == dir {
 		style = style.Foreground(lipgloss.Color("12"))
@@ -69,18 +76,24 @@ func (f File) FilterValue() string {
 /* main model */
 
 type Model struct {
-	list list.Model
-	err  error
+	list    list.Model
+	currDir string
+	err     error
 }
 
 func New() *Model {
 	var m Model
-	m.initList()
+	m.currDir = "."
+	m.createList()
+	m.list.SetShowHelp(false)
+	m.list.SetShowStatusBar(false)
+	m.list.SetShowTitle(false)
+	m.list.KeyMap = list.DefaultKeyMap()
 	return &m
 }
 
-func (m *Model) initList() {
-	dirEntries, err := os.ReadDir(".")
+func (m *Model) createList() {
+	dirEntries, err := os.ReadDir(m.currDir)
 	if err != nil {
 		m.err = err
 		return
@@ -102,16 +115,6 @@ func (m *Model) initList() {
 	}
 
 	m.list = list.New(items, itemDelegate{}, 0, 0)
-	m.list.SetShowHelp(false)
-	m.list.SetShowStatusBar(false)
-	m.list.Styles.Title = lipgloss.NewStyle().Bold(true)
-
-	currDir, err := os.Getwd()
-	if err != nil {
-		m.list.Title = fmt.Sprintf("%s", err)
-		return
-	}
-	m.list.Title = string(currDir)
 }
 
 func (m Model) Init() tea.Cmd {
@@ -122,7 +125,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
-		m.list.SetHeight(msg.Height)
+		if len(m.list.Items()) < msg.Height - 2 {
+			m.list.SetHeight(len(m.list.Items()) + 3)
+		} else {
+			m.list.SetHeight(msg.Height - 2)
+		}
 	}
 
 	var cmd tea.Cmd
@@ -131,7 +138,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	return m.list.View()
+	t, err := filepath.Abs(m.currDir)
+	if err != nil {
+		return fmt.Sprintf("%s", err) + "\n\n" + m.list.View()
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	if err == nil && strings.HasPrefix(t, homeDir) {
+		t = "~" + t[len(homeDir):]
+	}
+
+	return titleStyle.Render(t + "/") + titleEndStyle.Render(m.list.SelectedItem().FilterValue()) + "\n" + m.list.View()
 }
 
 func main() {
