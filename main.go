@@ -2,166 +2,144 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
+	"sync"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	// "github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/lipgloss"
 )
-
-/* rendering */
 
 var (
-	titleEndStyle = lipgloss.NewStyle().Bold(true)
-	titleStyle = titleEndStyle.Copy().Foreground(lipgloss.Color("12"))
+	lastID int
+	idMtx  sync.Mutex
 )
 
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int                               { return 1 }
-func (d itemDelegate) Spacing() int                              { return 0 }
-func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
-
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(File)
-	if !ok {
-		return
-	}
-
-	str := string(i.name)
-	style := lipgloss.NewStyle()
-
-	if i.fileType == dir {
-		style = style.Foreground(lipgloss.Color("12"))
-	} else if i.fileType == symlink {
-		style = style.Foreground(lipgloss.Color("32"))
-	}
-
-	if index == m.Index() {
-		style = style.Foreground(lipgloss.Color("11")).Bold(true)
-	}
-	if i.isSelected {
-		style = style.Italic(true)
-	}
-
-	fn := style.Render
-	fmt.Fprintf(w, fn(str))
+func nextID() int {
+	idMtx.Lock()
+	defer idMtx.Unlock()
+	lastID++
+	return lastID
 }
 
-/* custom item */
-
-type fileType uint
-
-const (
-	regular fileType = iota
-	dir
-	symlink
-)
-
-type File struct {
-	name       string
-	fileType   fileType
-	isSelected bool
+type readDirMsg struct {
+	id    int
+	files []os.DirEntry
 }
-
-func (f File) FilterValue() string {
-	return f.name
-}
-
-/* main model */
 
 type Model struct {
-	list    list.Model
-	currDir string
-	err     error
+	files     []os.DirEntry
+	currDir   string
+	maxHeight int
+	idx       int
+	keys      KeyMap
+	styles    Styles
+	id        int
 }
 
-func New() *Model {
-	var m Model
-	m.currDir = "."
-	m.createList()
-	m.list.SetShowHelp(false)
-	m.list.SetShowStatusBar(false)
-	m.list.SetShowTitle(false)
-	m.list.KeyMap = list.DefaultKeyMap()
-	return &m
-}
-
-func (m *Model) createList() {
-	dirEntries, err := os.ReadDir(m.currDir)
-	if err != nil {
-		m.err = err
-		return
+func New() Model {
+	return Model{
+		currDir:   ".",
+		maxHeight: 0,
+		idx:       0,
+		keys:      DefaultKeyMap(),
+		styles:    DefaultStyles(),
+		id:        nextID(),
 	}
+}
 
-	var items []list.Item
-	for _, dirEntry := range dirEntries {
-		var f File
-		f.name = dirEntry.Name()
-		if dirEntry.IsDir() {
-			f.fileType = dir
-		} else if (dirEntry.Type() & os.ModeSymlink) != 0 {
-			f.fileType = symlink
-		} else {
-			f.fileType = regular
+func (m Model) readDir(path string) tea.Cmd {
+	return func() tea.Msg {
+		dirEntries, err := os.ReadDir(path)
+		if err != nil {
+			return err
 		}
-		f.isSelected = false
-		items = append(items, f)
+		// sort?
+		return readDirMsg{id: m.id, files: dirEntries}
 	}
-
-	m.list = list.New(items, itemDelegate{}, 0, 0)
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.readDir(m.currDir)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
-		if len(m.list.Items()) < msg.Height - 2 {
-			m.list.SetHeight(len(m.list.Items()) + 3)
-		} else {
-			m.list.SetHeight(msg.Height - 2)
+		m.maxHeight = msg.Height
+	case readDirMsg:
+		if msg.id != m.id {
+			break
+		}
+		m.files = msg.files
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keys.Quit):
+			return m, tea.Quit
+		case key.Matches(msg, m.keys.Up):
+			m.idx--
+			if m.idx < 0 {
+				m.idx = 0
+			}
+		case key.Matches(msg, m.keys.Down):
+			m.idx++
+			if m.idx >= len(m.files) {
+				m.idx = len(m.files) - 1
+			}
 		}
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	return m, nil
 }
 
 func (m Model) View() string {
-	t, err := filepath.Abs(m.currDir)
+	currPath, err := filepath.Abs(m.currDir)
 	if err != nil {
-		return fmt.Sprintf("%s", err) + "\n\n" + m.list.View()
+		currPath = fmt.Sprintf("Error displaying absolute path: %s", err)
 	}
 
-	homeDir, _ := os.UserHomeDir()
-	if err == nil && strings.HasPrefix(t, homeDir) {
-		t = "~" + t[len(homeDir):]
+	currPath = m.styles.Path.Render(currPath)
+
+	if len(m.files) == 0 {
+		return currPath + "\n\n" + m.styles.EmptyDir.String()
 	}
 
-	return titleStyle.Render(t + "/") + titleEndStyle.Render(m.list.SelectedItem().FilterValue()) + "\n" + m.list.View()
+	isRoot := m.currDir == "/"
+	if !isRoot {
+		currPath += m.styles.Path.Render("/")
+	}
+
+	var files string
+	var hovered string
+	for i, f := range m.files {
+		info, err := f.Info()
+		if err != nil {
+			files += fmt.Sprintf("Error reading file info: %s\n", err)
+			continue
+		}
+		isSymlink := info.Mode()&os.ModeSymlink != 0
+
+		file := f.Name()
+		if i == m.idx {
+			hovered = m.styles.PathEnd.Render(file)
+			file = m.styles.Hover.Render(file)
+		}
+
+		if f.IsDir() {
+			file = m.styles.Directory.Render(file)
+		} else if isSymlink {
+			file = m.styles.Symlink.Render(file)
+		}
+
+		files += file + "\n"
+	}
+
+	return currPath + hovered + "\n\n" + files
 }
 
 func main() {
-	f, err := tea.LogToFile("debug.log", "debug")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	m := New()
-
-	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
+	if _, err := tea.NewProgram(New()).Run(); err != nil {
 		log.Fatal(err)
 	}
 }
