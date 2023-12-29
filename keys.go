@@ -11,7 +11,7 @@ type KeyMap struct {
 	GoToBot   key.Binding
 	Quit      key.Binding
 	ForceQuit key.Binding
-	// TODO: select, copy, cut, paste, search, bulk rename
+	// TODO: select, copy, cut, paste, search, bulk rename, PgDn, PgUp
 }
 
 func DefaultKeyMap() KeyMap {
