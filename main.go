@@ -30,21 +30,6 @@ type readDirMsg struct {
 	files []os.DirEntry
 }
 
-type stack []int
-
-func (s *stack) push(i int) {
-	*s = append(*s, i)
-}
-
-func (s *stack) pop() int {
-	if len(*s) == 0 {
-		return -1
-	}
-	i := (*s)[len(*s)-1]
-	*s = (*s)[:len(*s)-1]
-	return i
-}
-
 type Model struct {
 	files      []os.DirEntry
 	currDir    string
@@ -58,15 +43,17 @@ type Model struct {
 	halfDist   int
 	showHidden bool
 	lastFile   string
-	stack      stack
-	newIdx     int
-	lastIdx    int
+	cursorSave map[string]int
 	id         int
 }
 
 func New() Model {
+	dir, err := filepath.Abs(".")
+	if err != nil {
+		log.Fatal(err)
+	}
 	return Model{
-		currDir:    ".",
+		currDir:    dir,
 		maxHeight:  0,
 		idx:        0,
 		keys:       DefaultKeyMap(),
@@ -77,9 +64,7 @@ func New() Model {
 		halfDist:   18,
 		showHidden: false,
 		lastFile:   "",
-		stack:      make(stack, 0),
-		newIdx:     -1,
-		lastIdx:    -1,
+		cursorSave: make(map[string]int),
 		id:         nextID(),
 	}
 }
@@ -130,19 +115,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.files)-1 < m.idx {
 			m.idx = len(m.files) - 1
 		}
-		if m.lastFile != "" {
-			for i, f := range m.files {
-				if f.Name() == m.lastFile {
-					m.idx = i
-					break
-				}
-			}
-			m.lastFile = ""
-		} else if m.newIdx != -1 {
-			m.idx = m.newIdx
-			m.newIdx = -1
+		if m.lastFile == "" {
+			break
 		}
-		m.lastIdx = m.idx
+		for i, f := range m.files {
+			if f.Name() == m.lastFile {
+				m.idx = i
+				break
+			}
+		}
+		m.lastFile = ""
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -219,8 +201,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currDir == "/" {
 				break
 			}
-			m.stack.push(m.idx)
 			m.lastFile = filepath.Base(m.currDir)
+			m.cursorSave[m.currDir] = m.idx
 			newDir, err := filepath.Abs(m.currDir)
 			if err != nil {
 				log.Fatal(err)
@@ -245,19 +227,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.currDir = newPath
 			m.lastFile = ""
-			if m.idx == m.lastIdx {
-				m.newIdx = m.stack.pop()
-			}
 			if isSymlink {
 				target, err := filepath.EvalSymlinks(m.currDir)
 				if err != nil {
 					break
 				}
 				m.currDir = filepath.Dir(target)
-				m.stack = make(stack, 0)
-				m.newIdx = -1
 			}
-			m.idx = 0
+			if val, ok := m.cursorSave[m.currDir]; ok {
+				m.idx = val
+			} else {
+				m.idx = 0
+			}
 			m.min = 0
 			m.max = m.maxHeight
 			return m, m.readDir(m.currDir)
