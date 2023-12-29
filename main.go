@@ -30,6 +30,21 @@ type readDirMsg struct {
 	files []os.DirEntry
 }
 
+type stack []int
+
+func (s *stack) push(i int) {
+	*s = append(*s, i)
+}
+
+func (s *stack) pop() int {
+	if len(*s) == 0 {
+		return -1
+	}
+	i := (*s)[len(*s)-1]
+	*s = (*s)[:len(*s)-1]
+	return i
+}
+
 type Model struct {
 	files      []os.DirEntry
 	currDir    string
@@ -39,7 +54,12 @@ type Model struct {
 	styles     Styles
 	min        int
 	max        int
+	pageDist   int
+	halfDist   int
 	showHidden bool
+	lastFile   string
+	stack      stack
+	newIdx     int
 	id         int
 }
 
@@ -52,7 +72,12 @@ func New() Model {
 		styles:     DefaultStyles(),
 		min:        0,
 		max:        0,
+		pageDist:   37,
+		halfDist:   18,
 		showHidden: false,
+		lastFile:   "",
+		stack:      make(stack, 0),
+		newIdx:     -1,
 		id:         nextID(),
 	}
 }
@@ -94,6 +119,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.files)-1 < m.idx {
 			m.idx = len(m.files) - 1
 		}
+		if m.lastFile != "" {
+			for i, f := range m.files {
+				if f.Name() == m.lastFile {
+					m.idx = i
+					break
+				}
+			}
+			m.lastFile = ""
+		} else if m.newIdx != -1 {
+			m.idx = m.newIdx
+			m.newIdx = -1
+		}
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -126,7 +163,52 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.idx = len(m.files) - 1
 			m.min = len(m.files) - m.maxHeight
 			m.max = len(m.files) - 1
+		case key.Matches(msg, m.keys.HalfPgDn):
+			m.idx += m.halfDist
+			if m.idx >= len(m.files) {
+				m.idx = len(m.files) - 1
+			}
+			if m.idx > m.max {
+				diff := m.idx - m.max
+				m.min += diff
+				m.max += diff
+			}
+		case key.Matches(msg, m.keys.HalfPgUp):
+			m.idx -= m.halfDist
+			if m.idx < 0 {
+				m.idx = 0
+			}
+			if m.idx < m.min {
+				diff := m.min - m.idx
+				m.min -= diff
+				m.max -= diff
+			}
+		case key.Matches(msg, m.keys.PgDn):
+			m.idx += m.pageDist
+			if m.idx >= len(m.files) {
+				m.idx = len(m.files) - 1
+			}
+			if m.idx > m.max {
+				diff := m.idx - m.max
+				m.min += diff
+				m.max += diff
+			}
+		case key.Matches(msg, m.keys.PgUp):
+			m.idx -= m.pageDist
+			if m.idx < 0 {
+				m.idx = 0
+			}
+			if m.idx < m.min {
+				diff := m.min - m.idx
+				m.min -= diff
+				m.max -= diff
+			}
 		case key.Matches(msg, m.keys.Left):
+			if m.currDir == "/" {
+				break
+			}
+			m.stack.push(m.idx)
+			m.lastFile = filepath.Base(m.currDir)
 			newDir, err := filepath.Abs(m.currDir)
 			if err != nil {
 				log.Fatal(err)
@@ -138,6 +220,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.max = m.maxHeight
 			return m, m.readDir(m.currDir)
 		case key.Matches(msg, m.keys.Right):
+			m.lastFile = ""
+			m.newIdx = m.stack.pop()
 			info, err := m.files[m.idx].Info()
 			if err != nil {
 				break

@@ -28,6 +28,6 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 		DirHover:  r.NewStyle().Underline(true).Foreground(lipgloss.Color("12")),
 		SymHover:  r.NewStyle().Underline(true).Foreground(lipgloss.Color("10")),
 		PathEnd:   r.NewStyle().Bold(true),
-		EmptyDir:  r.NewStyle().Foreground(lipgloss.Color("8")).SetString("Empty directory"),
+		EmptyDir:  r.NewStyle().Foreground(lipgloss.Color("8")).SetString("Empty"),
 	}
 }

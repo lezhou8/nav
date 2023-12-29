@@ -9,10 +9,14 @@ type KeyMap struct {
 	Left       key.Binding
 	GoToTop    key.Binding
 	GoToBot    key.Binding
+	PgDn       key.Binding
+	PgUp       key.Binding
+	HalfPgDn   key.Binding
+	HalfPgUp   key.Binding
 	ToggleDots key.Binding
 	Quit       key.Binding
 	ForceQuit  key.Binding
-	// TODO: select, copy, cut, paste, search, bulk rename, PgDn, PgUp, hide dotfiles
+	// TODO: select, copy, cut, paste, search, bulk rename
 }
 
 func DefaultKeyMap() KeyMap {
@@ -40,6 +44,22 @@ func DefaultKeyMap() KeyMap {
 		GoToBot: key.NewBinding(
 			key.WithKeys("end", "G"),
 			key.WithHelp("G/end", "go to bottom"),
+		),
+		PgDn: key.NewBinding(
+			key.WithKeys("pgdown", "ctrl+f"),
+			key.WithHelp("pagedown/ctrl+f", "page down"),
+		),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup", "ctrl+b"),
+			key.WithHelp("pageup/ctrl+b", "page up"),
+		),
+		HalfPgDn: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("ctrl+d", "half page down"),
+		),
+		HalfPgUp: key.NewBinding(
+			key.WithKeys("ctrl+u"),
+			key.WithHelp("ctrl+u", "half page up"),
 		),
 		ToggleDots: key.NewBinding(
 			key.WithKeys("."),
