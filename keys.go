@@ -3,15 +3,16 @@ package main
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	Up        key.Binding
-	Down      key.Binding
-	Right     key.Binding
-	Left      key.Binding
-	GoToTop   key.Binding
-	GoToBot   key.Binding
-	Quit      key.Binding
-	ForceQuit key.Binding
-	// TODO: select, copy, cut, paste, search, bulk rename, PgDn, PgUp
+	Up         key.Binding
+	Down       key.Binding
+	Right      key.Binding
+	Left       key.Binding
+	GoToTop    key.Binding
+	GoToBot    key.Binding
+	ToggleDots key.Binding
+	Quit       key.Binding
+	ForceQuit  key.Binding
+	// TODO: select, copy, cut, paste, search, bulk rename, PgDn, PgUp, hide dotfiles
 }
 
 func DefaultKeyMap() KeyMap {
@@ -39,6 +40,10 @@ func DefaultKeyMap() KeyMap {
 		GoToBot: key.NewBinding(
 			key.WithKeys("end", "G"),
 			key.WithHelp("G/end", "go to bottom"),
+		),
+		ToggleDots: key.NewBinding(
+			key.WithKeys("."),
+			key.WithHelp(".", "toggle show hidden files"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),

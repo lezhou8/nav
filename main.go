@@ -31,27 +31,29 @@ type readDirMsg struct {
 }
 
 type Model struct {
-	files     []os.DirEntry
-	currDir   string
-	maxHeight int
-	idx       int
-	keys      KeyMap
-	styles    Styles
-	min       int
-	max       int
-	id        int
+	files      []os.DirEntry
+	currDir    string
+	maxHeight  int
+	idx        int
+	keys       KeyMap
+	styles     Styles
+	min        int
+	max        int
+	showHidden bool
+	id         int
 }
 
 func New() Model {
 	return Model{
-		currDir:   ".",
-		maxHeight: 0,
-		idx:       0,
-		keys:      DefaultKeyMap(),
-		styles:    DefaultStyles(),
-		min:       0,
-		max:       0,
-		id:        nextID(),
+		currDir:    ".",
+		maxHeight:  0,
+		idx:        0,
+		keys:       DefaultKeyMap(),
+		styles:     DefaultStyles(),
+		min:        0,
+		max:        0,
+		showHidden: false,
+		id:         nextID(),
 	}
 }
 
@@ -61,7 +63,16 @@ func (m Model) readDir(path string) tea.Cmd {
 		if err != nil {
 			return err
 		}
-		return readDirMsg{id: m.id, files: dirEntries}
+		if m.showHidden {
+			return readDirMsg{id: m.id, files: dirEntries}
+		}
+		var filtered []os.DirEntry
+		for _, f := range dirEntries {
+			if f.Name()[0] != '.' {
+				filtered = append(filtered, f)
+			}
+		}
+		return readDirMsg{id: m.id, files: filtered}
 	}
 }
 
@@ -80,6 +91,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.files = msg.files
 		m.max = m.maxHeight
+		if len(m.files)-1 < m.idx {
+			m.idx = len(m.files) - 1
+		}
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -143,6 +157,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.idx = 0
 			m.min = 0
 			m.max = m.maxHeight
+			return m, m.readDir(m.currDir)
+		case key.Matches(msg, m.keys.ToggleDots):
+			var hiddenCount int
+			if m.showHidden {
+				for _, f := range m.files {
+					if f.Name()[0] != '.' {
+						break
+					}
+					hiddenCount++
+				}
+			} else {
+				dirEntries, err := os.ReadDir(m.currDir)
+				if err != nil {
+					break
+				}
+				for _, f := range dirEntries {
+					if f.Name()[0] != '.' {
+						break
+					}
+					hiddenCount++
+				}
+			}
+			m.showHidden = !m.showHidden
+			if m.showHidden {
+				m.idx += hiddenCount
+			} else {
+				if m.idx < hiddenCount {
+					m.idx = 0
+				} else {
+					m.idx -= hiddenCount
+				}
+			}
 			return m, m.readDir(m.currDir)
 		}
 	}
