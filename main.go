@@ -84,6 +84,15 @@ func New() Model {
 	}
 }
 
+func isDirAccessible(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return true
+}
+
 func (m Model) readDir(path string) tea.Cmd {
 	return func() tea.Msg {
 		dirEntries, err := os.ReadDir(path)
@@ -230,11 +239,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) == 0 || (!m.files[m.idx].IsDir() && !isSymlink) {
 				break
 			}
+			newPath := filepath.Join(m.currDir, m.files[m.idx].Name())
+			if !isDirAccessible(newPath) {
+				break
+			}
+			m.currDir = newPath
 			m.lastFile = ""
 			if m.idx == m.lastIdx {
 				m.newIdx = m.stack.pop()
 			}
-			m.currDir = filepath.Join(m.currDir, m.files[m.idx].Name())
 			if isSymlink {
 				target, err := filepath.EvalSymlinks(m.currDir)
 				if err != nil {
