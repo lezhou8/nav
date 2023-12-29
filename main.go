@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const HeightBuffer int = 4
+const HeightBuffer int = 5
 
 var (
 	lastID int
@@ -60,6 +60,7 @@ type Model struct {
 	lastFile   string
 	stack      stack
 	newIdx     int
+	lastIdx    int
 	id         int
 }
 
@@ -78,6 +79,7 @@ func New() Model {
 		lastFile:   "",
 		stack:      make(stack, 0),
 		newIdx:     -1,
+		lastIdx:    -1,
 		id:         nextID(),
 	}
 }
@@ -131,6 +133,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.idx = m.newIdx
 			m.newIdx = -1
 		}
+		m.lastIdx = m.idx
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -215,13 +218,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			newDir = filepath.Dir(newDir)
 			m.currDir = newDir
-			m.idx = 0
 			m.min = 0
 			m.max = m.maxHeight
 			return m, m.readDir(m.currDir)
 		case key.Matches(msg, m.keys.Right):
-			m.lastFile = ""
-			m.newIdx = m.stack.pop()
 			info, err := m.files[m.idx].Info()
 			if err != nil {
 				break
@@ -230,6 +230,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) == 0 || (!m.files[m.idx].IsDir() && !isSymlink) {
 				break
 			}
+			m.lastFile = ""
+			if m.idx == m.lastIdx {
+				m.newIdx = m.stack.pop()
+			}
 			m.currDir = filepath.Join(m.currDir, m.files[m.idx].Name())
 			if isSymlink {
 				target, err := filepath.EvalSymlinks(m.currDir)
@@ -237,6 +241,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					break
 				}
 				m.currDir = filepath.Dir(target)
+				m.stack = make(stack, 0)
+				m.newIdx = -1
 			}
 			m.idx = 0
 			m.min = 0
