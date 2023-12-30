@@ -11,7 +11,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const HeightBuffer int = 5
+const (
+	HeightBuffer int    = 5
+	XDGCacheDir  string = "$XDG_CACHE_HOME"
+	CacheSubDir  string = "nav"
+	CacheFile    string = ".nav_d"
+)
 
 var (
 	lastID int
@@ -128,6 +133,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			cacheDir := os.Getenv(XDGCacheDir)
+			if cacheDir == "" {
+				homeDir, err := os.UserHomeDir()
+				if err != nil {
+					log.Fatal("Error getting user's home directory:", err)
+				}
+				cacheDir = filepath.Join(homeDir, ".cache")
+			}
+			subDir := filepath.Join(cacheDir, CacheSubDir)
+			err := os.MkdirAll(subDir, 0755)
+			if err != nil {
+				log.Fatal("Error creating directory:", err)
+			}
+			fp := filepath.Join(subDir, CacheFile)
+			f, err := os.Create(fp)
+			if err != nil {
+				log.Fatal("Error creating file:", err)
+			}
+			defer f.Close()
+			data := []byte(m.currDir + "\n")
+			_, err = f.Write(data)
+			if err != nil {
+				log.Fatal("Error creating file:", err)
+			}
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.ForceQuit):
 			return m, tea.Quit
@@ -221,19 +250,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) == 0 || (!m.files[m.idx].IsDir() && !isSymlink) {
 				break
 			}
+			oldDir := m.currDir
 			newPath := filepath.Join(m.currDir, m.files[m.idx].Name())
 			if !isDirAccessible(newPath) {
 				break
 			}
-			m.currDir = newPath
-			m.lastFile = ""
 			if isSymlink {
-				target, err := filepath.EvalSymlinks(m.currDir)
+				target, err := filepath.EvalSymlinks(newPath)
 				if err != nil {
 					break
 				}
-				m.currDir = filepath.Dir(target)
+				targetInfo, err := os.Stat(target)
+				if err != nil {
+					break
+				}
+				if !targetInfo.IsDir() {
+					break
+				}
+				m.currDir = target
+			} else {
+				m.currDir = newPath
 			}
+			m.cursorSave[oldDir] = m.idx
+			m.lastFile = ""
 			if val, ok := m.cursorSave[m.currDir]; ok {
 				m.idx = val
 			} else {
@@ -273,6 +312,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.idx -= hiddenCount
 				}
 			}
+			return m, m.readDir(m.currDir)
+		case key.Matches(msg, m.keys.GoHome):
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				break
+			}
+			m.cursorSave[m.currDir] = m.idx
+			m.currDir = homeDir
+			m.lastFile = ""
+			if val, ok := m.cursorSave[m.currDir]; ok {
+				m.idx = val
+			} else {
+				m.idx = 0
+			}
+			m.min = 0
+			m.max = m.maxHeight
 			return m, m.readDir(m.currDir)
 		}
 	}

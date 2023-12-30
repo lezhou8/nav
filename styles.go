@@ -3,15 +3,16 @@ package main
 import "github.com/charmbracelet/lipgloss"
 
 type Styles struct {
-	Regular   lipgloss.Style
-	Directory lipgloss.Style
-	Symlink   lipgloss.Style
-	Hover     lipgloss.Style
-	Path      lipgloss.Style
-	DirHover  lipgloss.Style
-	SymHover  lipgloss.Style
-	PathEnd   lipgloss.Style
-	EmptyDir  lipgloss.Style
+	Regular         lipgloss.Style
+	Directory       lipgloss.Style
+	InaccessibleDir lipgloss.Style
+	Symlink         lipgloss.Style
+	Hover           lipgloss.Style
+	Path            lipgloss.Style
+	DirHover        lipgloss.Style
+	SymHover        lipgloss.Style
+	PathEnd         lipgloss.Style
+	EmptyDir        lipgloss.Style
 }
 
 func DefaultStyles() Styles {
@@ -22,6 +23,7 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 	return Styles{
 		Regular:   r.NewStyle(),
 		Directory: r.NewStyle().Foreground(lipgloss.Color("12")),
+		InaccessibleDir: r.NewStyle().Foreground(lipgloss.Color("9")),
 		Symlink:   r.NewStyle().Foreground(lipgloss.Color("10")),
 		Hover:     r.NewStyle().Underline(true),
 		Path:      r.NewStyle().Foreground(lipgloss.Color("12")).Bold(true),

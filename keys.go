@@ -14,6 +14,7 @@ type KeyMap struct {
 	HalfPgDn   key.Binding
 	HalfPgUp   key.Binding
 	ToggleDots key.Binding
+	GoHome     key.Binding
 	Quit       key.Binding
 	ForceQuit  key.Binding
 	// TODO: select, copy, cut, paste, search, bulk rename
@@ -64,6 +65,10 @@ func DefaultKeyMap() KeyMap {
 		ToggleDots: key.NewBinding(
 			key.WithKeys("."),
 			key.WithHelp(".", "toggle show hidden files"),
+		),
+		GoHome: key.NewBinding(
+			key.WithKeys("~"),
+			key.WithHelp("~", "go to home directory"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),
