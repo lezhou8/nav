@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -33,45 +34,6 @@ func nextID() int {
 type readDirMsg struct {
 	id    int
 	files []os.DirEntry
-}
-
-type Model struct {
-	files      []os.DirEntry
-	currDir    string
-	maxHeight  int
-	idx        int
-	keys       KeyMap
-	styles     Styles
-	min        int
-	max        int
-	pageDist   int
-	halfDist   int
-	showHidden bool
-	lastFile   string
-	cursorSave map[string]int
-	id         int
-}
-
-func New() Model {
-	dir, err := filepath.Abs(".")
-	if err != nil {
-		log.Fatal(err)
-	}
-	return Model{
-		currDir:    dir,
-		maxHeight:  0,
-		idx:        0,
-		keys:       DefaultKeyMap(),
-		styles:     DefaultStyles(),
-		min:        0,
-		max:        0,
-		pageDist:   37,
-		halfDist:   18,
-		showHidden: false,
-		lastFile:   "",
-		cursorSave: make(map[string]int),
-		id:         nextID(),
-	}
 }
 
 func isDirAccessible(path string) bool {
@@ -102,12 +64,113 @@ func (m Model) readDir(path string) tea.Cmd {
 	}
 }
 
+type Model struct {
+	files         []os.DirEntry
+	currDir       string
+	maxHeight     int
+	idx           int
+	keys          KeyMap
+	styles        Styles
+	min           int
+	max           int
+	pageDist      int
+	halfDist      int
+	showHidden    bool
+	lastFile      string
+	cursorSave    map[string]int
+	filter        FilterFunc
+	filterState   FilterState
+	filteredItems filteredItems
+	filterInput   textinput.Model
+	id            int
+}
+
+func New() Model {
+	dir, err := filepath.Abs(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+	filterInput := textinput.New()
+	filterInput.Prompt = "/"
+	return Model{
+		currDir:     dir,
+		maxHeight:   0,
+		idx:         0,
+		keys:        DefaultKeyMap(),
+		styles:      DefaultStyles(),
+		min:         0,
+		max:         0,
+		pageDist:    37,
+		halfDist:    18,
+		showHidden:  false,
+		lastFile:    "",
+		cursorSave:  make(map[string]int),
+		filter:      DefaultFilter,
+		filterState: Unfiltered,
+		filterInput: filterInput,
+		id:          nextID(),
+	}
+}
+
+// func (m *Model) updateKeyBindings() {
+// 	switch m.filterState {
+// 	case Filtering:
+// 		m.keys.Up.SetEnabled(false)
+// 		m.keys.Down.SetEnabled(false)
+// 		m.keys.GoToTop.SetEnabled(false)
+// 		m.keys.GoToBot.SetEnabled(false)
+// 		m.keys.HalfPgDn.SetEnabled(false)
+// 		m.keys.HalfPgUp.SetEnabled(false)
+// 		m.keys.PgDn.SetEnabled(false)
+// 		m.keys.PgUp.SetEnabled(false)
+// 		m.keys.FilterOn.SetEnabled(false)
+// 		m.keys.Left.SetEnabled(false)
+// 		m.keys.Right.SetEnabled(false)
+// 		m.keys.ToggleDots.SetEnabled(false)
+// 		m.keys.GoHome.SetEnabled(false)
+// 	default:
+// 		m.keys.Up.SetEnabled(true)
+// 		m.keys.Down.SetEnabled(true)
+// 		m.keys.GoToTop.SetEnabled(true)
+// 		m.keys.GoToBot.SetEnabled(true)
+// 		m.keys.HalfPgDn.SetEnabled(true)
+// 		m.keys.HalfPgUp.SetEnabled(true)
+// 		m.keys.PgDn.SetEnabled(true)
+// 		m.keys.PgUp.SetEnabled(true)
+// 		m.keys.FilterOn.SetEnabled(true)
+// 		m.keys.Left.SetEnabled(true)
+// 		m.keys.Right.SetEnabled(true)
+// 		m.keys.ToggleDots.SetEnabled(true)
+// 		m.keys.GoHome.SetEnabled(true)
+// 	}
+// }
+
+func (m *Model) refreshFiles() {
+	if len(m.files)-1 < m.idx {
+		m.idx = len(m.files) - 1
+	}
+	if m.lastFile == "" {
+		return
+	}
+	for i, f := range m.files {
+		if f.Name() == m.lastFile {
+			m.idx = i
+			break
+		}
+	}
+	m.lastFile = ""
+}
+
 func (m Model) Init() tea.Cmd {
 	return m.readDir(m.currDir)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if key.Matches(msg, m.keys.ForceQuit) {
+			return m, tea.Quit
+		}
 	case tea.WindowSizeMsg:
 		m.maxHeight = msg.Height - HeightBuffer
 		m.max = m.maxHeight
@@ -117,221 +180,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.files = msg.files
 		m.max = m.maxHeight
-		if len(m.files)-1 < m.idx {
-			m.idx = len(m.files) - 1
-		}
-		if m.lastFile == "" {
-			break
-		}
-		for i, f := range m.files {
-			if f.Name() == m.lastFile {
-				m.idx = i
-				break
-			}
-		}
-		m.lastFile = ""
-	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keys.Quit):
-			cacheDir := os.Getenv(XDGCacheDir)
-			if cacheDir == "" {
-				homeDir, err := os.UserHomeDir()
-				if err != nil {
-					log.Fatal("Error getting user's home directory:", err)
-				}
-				cacheDir = filepath.Join(homeDir, ".cache")
-			}
-			subDir := filepath.Join(cacheDir, CacheSubDir)
-			err := os.MkdirAll(subDir, 0755)
-			if err != nil {
-				log.Fatal("Error creating directory:", err)
-			}
-			fp := filepath.Join(subDir, CacheFile)
-			f, err := os.Create(fp)
-			if err != nil {
-				log.Fatal("Error creating file:", err)
-			}
-			defer f.Close()
-			data := []byte(m.currDir + "\n")
-			_, err = f.Write(data)
-			if err != nil {
-				log.Fatal("Error creating file:", err)
-			}
-			return m, tea.Quit
-		case key.Matches(msg, m.keys.ForceQuit):
-			return m, tea.Quit
-		case key.Matches(msg, m.keys.Up):
-			m.idx--
-			if m.idx < 0 {
-				m.idx = 0
-			}
-			if m.idx < m.min {
-				m.min--
-				m.max--
-			}
-		case key.Matches(msg, m.keys.Down):
-			m.idx++
-			if m.idx >= len(m.files) {
-				m.idx = len(m.files) - 1
-			}
-			if m.idx > m.max {
-				m.min++
-				m.max++
-			}
-		case key.Matches(msg, m.keys.GoToTop):
-			m.idx = 0
-			m.min = 0
-			m.max = m.maxHeight
-		case key.Matches(msg, m.keys.GoToBot):
-			m.idx = len(m.files) - 1
-			m.min = len(m.files) - m.maxHeight
-			m.max = len(m.files) - 1
-		case key.Matches(msg, m.keys.HalfPgDn):
-			m.idx += m.halfDist
-			if m.idx >= len(m.files) {
-				m.idx = len(m.files) - 1
-			}
-			if m.idx > m.max {
-				diff := m.idx - m.max
-				m.min += diff
-				m.max += diff
-			}
-		case key.Matches(msg, m.keys.HalfPgUp):
-			m.idx -= m.halfDist
-			if m.idx < 0 {
-				m.idx = 0
-			}
-			if m.idx < m.min {
-				diff := m.min - m.idx
-				m.min -= diff
-				m.max -= diff
-			}
-		case key.Matches(msg, m.keys.PgDn):
-			m.idx += m.pageDist
-			if m.idx >= len(m.files) {
-				m.idx = len(m.files) - 1
-			}
-			if m.idx > m.max {
-				diff := m.idx - m.max
-				m.min += diff
-				m.max += diff
-			}
-		case key.Matches(msg, m.keys.PgUp):
-			m.idx -= m.pageDist
-			if m.idx < 0 {
-				m.idx = 0
-			}
-			if m.idx < m.min {
-				diff := m.min - m.idx
-				m.min -= diff
-				m.max -= diff
-			}
-		case key.Matches(msg, m.keys.Left):
-			if m.currDir == "/" {
-				break
-			}
-			m.lastFile = filepath.Base(m.currDir)
-			m.cursorSave[m.currDir] = m.idx
-			newDir, err := filepath.Abs(m.currDir)
-			if err != nil {
-				log.Fatal(err)
-			}
-			newDir = filepath.Dir(newDir)
-			m.currDir = newDir
-			m.min = 0
-			m.max = m.maxHeight
-			return m, m.readDir(m.currDir)
-		case key.Matches(msg, m.keys.Right):
-			info, err := m.files[m.idx].Info()
-			if err != nil {
-				break
-			}
-			isSymlink := info.Mode()&os.ModeSymlink != 0
-			if len(m.files) == 0 || (!m.files[m.idx].IsDir() && !isSymlink) {
-				break
-			}
-			oldDir := m.currDir
-			newPath := filepath.Join(m.currDir, m.files[m.idx].Name())
-			if !isDirAccessible(newPath) {
-				break
-			}
-			if isSymlink {
-				target, err := filepath.EvalSymlinks(newPath)
-				if err != nil {
-					break
-				}
-				targetInfo, err := os.Stat(target)
-				if err != nil {
-					break
-				}
-				if !targetInfo.IsDir() {
-					break
-				}
-				m.currDir = target
-			} else {
-				m.currDir = newPath
-			}
-			m.cursorSave[oldDir] = m.idx
-			m.lastFile = ""
-			if val, ok := m.cursorSave[m.currDir]; ok {
-				m.idx = val
-			} else {
-				m.idx = 0
-			}
-			m.min = 0
-			m.max = m.maxHeight
-			return m, m.readDir(m.currDir)
-		case key.Matches(msg, m.keys.ToggleDots):
-			var hiddenCount int
-			if m.showHidden {
-				for _, f := range m.files {
-					if f.Name()[0] != '.' {
-						break
-					}
-					hiddenCount++
-				}
-			} else {
-				dirEntries, err := os.ReadDir(m.currDir)
-				if err != nil {
-					break
-				}
-				for _, f := range dirEntries {
-					if f.Name()[0] != '.' {
-						break
-					}
-					hiddenCount++
-				}
-			}
-			m.showHidden = !m.showHidden
-			if m.showHidden {
-				m.idx += hiddenCount
-			} else {
-				if m.idx < hiddenCount {
-					m.idx = 0
-				} else {
-					m.idx -= hiddenCount
-				}
-			}
-			return m, m.readDir(m.currDir)
-		case key.Matches(msg, m.keys.GoHome):
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				break
-			}
-			m.cursorSave[m.currDir] = m.idx
-			m.currDir = homeDir
-			m.lastFile = ""
-			if val, ok := m.cursorSave[m.currDir]; ok {
-				m.idx = val
-			} else {
-				m.idx = 0
-			}
-			m.min = 0
-			m.max = m.maxHeight
-			return m, m.readDir(m.currDir)
-		}
+		m.refreshFiles()
 	}
-	return m, nil
+
+	if m.filterState == Filtering {
+		return m.filterMode(msg)
+	}
+	return m.normalMode(msg)
 }
 
 func (m Model) View() string {
@@ -371,7 +226,7 @@ func (m Model) View() string {
 		switch {
 		case i == m.idx && f.IsDir():
 			hovered = m.styles.PathEnd.Render(file)
-			file = m.styles.DirHover.Render(file)
+			file = m.styles.DirHover.Render(file + "/")
 		case i == m.idx && isSymlink:
 			hovered = m.styles.PathEnd.Render(file)
 			target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
@@ -381,7 +236,7 @@ func (m Model) View() string {
 			}
 			file = m.styles.SymHover.Render(file + " -> " + target)
 		case f.IsDir():
-			file = m.styles.Directory.Render(file)
+			file = m.styles.Directory.Render(file + "/")
 		case isSymlink:
 			target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
 			if err != nil {
@@ -395,7 +250,11 @@ func (m Model) View() string {
 		}
 		files += file + "\n"
 	}
-	return currPath + hovered + "\n\n" + files
+	filterBar := "\n\n"
+	if m.filterState == Filtering || m.filterState == FilterApplied {
+		filterBar = "\n" + m.styles.Filter.Render(m.filterInput.View()) + "\n"
+	}
+	return currPath + hovered + filterBar + files
 }
 
 func main() {

@@ -3,21 +3,24 @@ package main
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	Up         key.Binding
-	Down       key.Binding
-	Right      key.Binding
-	Left       key.Binding
-	GoToTop    key.Binding
-	GoToBot    key.Binding
-	PgDn       key.Binding
-	PgUp       key.Binding
-	HalfPgDn   key.Binding
-	HalfPgUp   key.Binding
-	ToggleDots key.Binding
-	GoHome     key.Binding
-	Quit       key.Binding
-	ForceQuit  key.Binding
-	// TODO: select, copy, cut, paste, search, bulk rename
+	Up           key.Binding
+	Down         key.Binding
+	Right        key.Binding
+	Left         key.Binding
+	GoToTop      key.Binding
+	GoToBot      key.Binding
+	PgDn         key.Binding
+	PgUp         key.Binding
+	HalfPgDn     key.Binding
+	HalfPgUp     key.Binding
+	ToggleDots   key.Binding
+	GoHome       key.Binding
+	FilterOn     key.Binding
+	FilterOff    key.Binding
+	FilterAccept key.Binding
+	Quit         key.Binding
+	ForceQuit    key.Binding
+	// TODO: select, copy, cut, paste, filter, bulk rename
 }
 
 func DefaultKeyMap() KeyMap {
@@ -69,6 +72,18 @@ func DefaultKeyMap() KeyMap {
 		GoHome: key.NewBinding(
 			key.WithKeys("~"),
 			key.WithHelp("~", "go to home directory"),
+		),
+		FilterOn: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search mode on"),
+		),
+		FilterOff: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "search mode off"),
+		),
+		FilterAccept: key.NewBinding(
+			key.WithKeys("enter", "tab", "shift+tab", "ctrl+k", "up", "ctrl+j", "down"),
+			key.WithHelp("enter", "apply filter"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),
