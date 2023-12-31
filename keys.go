@@ -20,7 +20,7 @@ type KeyMap struct {
 	FilterAccept key.Binding
 	Quit         key.Binding
 	ForceQuit    key.Binding
-	// TODO: select, copy, cut, paste, filter, bulk rename
+	// TODO: select, copy, cut, paste, bulk rename
 }
 
 func DefaultKeyMap() KeyMap {

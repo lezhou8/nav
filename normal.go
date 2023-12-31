@@ -9,6 +9,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+func (m Model) getFileLen() int {
+	if m.filterState == FilterApplied {
+		return len(m.filteredFiles)
+	}
+	return len(m.files)
+}
+
 func (m Model) quitRoutine() {
 	cacheDir := os.Getenv(XDGCacheDir)
 	if cacheDir == "" {
@@ -48,7 +55,7 @@ func (m *Model) up() {
 }
 
 func (m *Model) down() {
-	fileLen := len(m.files)
+	fileLen := m.getFileLen()
 	m.idx++
 	if m.idx >= fileLen {
 		m.idx = fileLen - 1
@@ -66,14 +73,14 @@ func (m *Model) goToTop() {
 }
 
 func (m *Model) goToBot() {
-	fileLen := len(m.files)
+	fileLen := m.getFileLen()
 	m.idx = fileLen - 1
 	m.min = fileLen - m.maxHeight
 	m.max = fileLen - 1
 }
 
 func (m *Model) halfPgDn() {
-	fileLen := len(m.files)
+	fileLen := m.getFileLen()
 	m.idx += m.halfDist
 	if m.idx >= fileLen {
 		m.idx = fileLen - 1
@@ -98,7 +105,7 @@ func (m *Model) halfPgUp() {
 }
 
 func (m *Model) pgDn() {
-	fileLen := len(m.files)
+	fileLen := m.getFileLen()
 	m.idx += m.pageDist
 	if m.idx >= fileLen {
 		m.idx = fileLen - 1
@@ -136,7 +143,7 @@ func (m Model) left() (tea.Model, tea.Cmd) {
 	m.currDir = newDir
 	m.min = 0
 	m.max = m.maxHeight
-	m.filterState = Unfiltered
+	m.filterOff()
 	return m, m.readDir(m.currDir)
 }
 
@@ -179,7 +186,7 @@ func (m Model) right() (tea.Model, tea.Cmd) {
 	}
 	m.min = 0
 	m.max = m.maxHeight
-	m.filterState = Unfiltered
+	m.filterOff()
 	return m, m.readDir(m.currDir)
 }
 
@@ -232,7 +239,7 @@ func (m Model) goHome() (tea.Model, tea.Cmd) {
 	}
 	m.min = 0
 	m.max = m.maxHeight
-	m.filterState = Unfiltered
+	m.filterOff()
 	return m, m.readDir(m.currDir)
 }
 
@@ -259,7 +266,7 @@ func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pgDn()
 		case key.Matches(msg, m.keys.PgUp):
 			m.pgUp()
-		case key.Matches(msg, m.keys.FilterOn):
+		case key.Matches(msg, m.keys.FilterOn) && 0 < len(m.files):
 			m.filterOn()
 		case key.Matches(msg, m.keys.FilterOff):
 			m.filterOff()

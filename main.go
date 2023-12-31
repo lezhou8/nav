@@ -80,7 +80,7 @@ type Model struct {
 	cursorSave    map[string]int
 	filter        FilterFunc
 	filterState   FilterState
-	filteredItems filteredItems
+	filteredFiles filteredFiles
 	filterInput   textinput.Model
 	id            int
 }
@@ -112,39 +112,6 @@ func New() Model {
 	}
 }
 
-// func (m *Model) updateKeyBindings() {
-// 	switch m.filterState {
-// 	case Filtering:
-// 		m.keys.Up.SetEnabled(false)
-// 		m.keys.Down.SetEnabled(false)
-// 		m.keys.GoToTop.SetEnabled(false)
-// 		m.keys.GoToBot.SetEnabled(false)
-// 		m.keys.HalfPgDn.SetEnabled(false)
-// 		m.keys.HalfPgUp.SetEnabled(false)
-// 		m.keys.PgDn.SetEnabled(false)
-// 		m.keys.PgUp.SetEnabled(false)
-// 		m.keys.FilterOn.SetEnabled(false)
-// 		m.keys.Left.SetEnabled(false)
-// 		m.keys.Right.SetEnabled(false)
-// 		m.keys.ToggleDots.SetEnabled(false)
-// 		m.keys.GoHome.SetEnabled(false)
-// 	default:
-// 		m.keys.Up.SetEnabled(true)
-// 		m.keys.Down.SetEnabled(true)
-// 		m.keys.GoToTop.SetEnabled(true)
-// 		m.keys.GoToBot.SetEnabled(true)
-// 		m.keys.HalfPgDn.SetEnabled(true)
-// 		m.keys.HalfPgUp.SetEnabled(true)
-// 		m.keys.PgDn.SetEnabled(true)
-// 		m.keys.PgUp.SetEnabled(true)
-// 		m.keys.FilterOn.SetEnabled(true)
-// 		m.keys.Left.SetEnabled(true)
-// 		m.keys.Right.SetEnabled(true)
-// 		m.keys.ToggleDots.SetEnabled(true)
-// 		m.keys.GoHome.SetEnabled(true)
-// 	}
-// }
-
 func (m *Model) refreshFiles() {
 	if len(m.files)-1 < m.idx {
 		m.idx = len(m.files) - 1
@@ -167,6 +134,9 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case FilterMatchesMsg:
+		m.filteredFiles = filteredFiles(msg)
+		return m, nil
 	case tea.KeyMsg:
 		if key.Matches(msg, m.keys.ForceQuit) {
 			return m, tea.Quit
@@ -206,49 +176,63 @@ func (m Model) View() string {
 		currPath += m.styles.Path.Render("/")
 	}
 
-	var files, hovered string
-	for i, f := range m.files {
-		if i < m.min {
-			continue
+	files := ""
+	hovered := ""
+	switch m.filterState {
+	case Unfiltered, FilterApplied:
+		var filesIterate []os.DirEntry
+		if m.filterState == Unfiltered {
+			filesIterate = m.files
+		} else {
+			filesIterate = m.filteredFiles.filteredFilesAsDirEntries()
 		}
-		if i > m.max {
-			break
-		}
-
-		info, err := f.Info()
-		if err != nil {
-			files += fmt.Sprintf("Error reading file info: %s\n", err)
-			continue
-		}
-		isSymlink := info.Mode()&os.ModeSymlink != 0
-
-		file := f.Name()
-		switch {
-		case i == m.idx && f.IsDir():
-			hovered = m.styles.PathEnd.Render(file)
-			file = m.styles.DirHover.Render(file + "/")
-		case i == m.idx && isSymlink:
-			hovered = m.styles.PathEnd.Render(file)
-			target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
-			if err != nil {
-				file = m.styles.SymHover.Render(file + " -> ... " + fmt.Sprintf("%s", err))
+		for i, f := range filesIterate {
+			if i < m.min {
+				continue
+			}
+			if i > m.max {
 				break
 			}
-			file = m.styles.SymHover.Render(file + " -> " + target)
-		case f.IsDir():
-			file = m.styles.Directory.Render(file + "/")
-		case isSymlink:
-			target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
+
+			info, err := f.Info()
 			if err != nil {
-				file = m.styles.Symlink.Render(file + " -> ... " + fmt.Sprintf("%s", err))
-				break
+				files += fmt.Sprintf("Error reading file info: %s\n", err)
+				continue
 			}
-			file = m.styles.Symlink.Render(file + " -> " + target)
-		case i == m.idx:
-			hovered = m.styles.PathEnd.Render(file)
-			file = m.styles.Hover.Render(file)
+			isSymlink := info.Mode()&os.ModeSymlink != 0
+
+			file := f.Name()
+			switch {
+			case i == m.idx && f.IsDir():
+				hovered = m.styles.PathEnd.Render(file)
+				file = m.styles.DirHover.Render(file + "/")
+			case i == m.idx && isSymlink:
+				hovered = m.styles.PathEnd.Render(file)
+				target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
+				if err != nil {
+					file = m.styles.SymHover.Render(file + " -> ... " + fmt.Sprintf("%s", err))
+					break
+				}
+				file = m.styles.SymHover.Render(file + " -> " + target)
+			case f.IsDir():
+				file = m.styles.Directory.Render(file + "/")
+			case isSymlink:
+				target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
+				if err != nil {
+					file = m.styles.Symlink.Render(file + " -> ... " + fmt.Sprintf("%s", err))
+					break
+				}
+				file = m.styles.Symlink.Render(file + " -> " + target)
+			case i == m.idx:
+				hovered = m.styles.PathEnd.Render(file)
+				file = m.styles.Hover.Render(file)
+			}
+			files += file + "\n"
 		}
-		files += file + "\n"
+	case Filtering:
+		for _, f := range m.filteredFiles {
+			files += m.styles.Filter.Render(f.file.Name()) + "\n"
+		}
 	}
 	filterBar := "\n\n"
 	if m.filterState == Filtering || m.filterState == FilterApplied {
