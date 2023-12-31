@@ -56,6 +56,9 @@ func DefaultFilter(term string, targets []string) []Rank {
 
 func filterFiles(m Model) tea.Cmd {
 	return func() tea.Msg {
+		if m.filterInput.Value() == "" {
+			return FilterMatchesMsg(m.filesAsFilterFiles())
+		}
 		fs := m.files
 		targets := make([]string, len(fs))
 

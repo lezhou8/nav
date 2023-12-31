@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/deckarep/golang-set"
 )
 
 const (
@@ -82,6 +83,7 @@ type Model struct {
 	filterState   FilterState
 	filteredFiles filteredFiles
 	filterInput   textinput.Model
+	selection     map[string]mapset.Set
 	id            int
 }
 
@@ -108,6 +110,7 @@ func New() Model {
 		filter:      DefaultFilter,
 		filterState: Unfiltered,
 		filterInput: filterInput,
+		selection:   make(map[string]mapset.Set),
 		id:          nextID(),
 	}
 }
@@ -210,7 +213,7 @@ func (m Model) View() string {
 				hovered = m.styles.PathEnd.Render(file)
 				target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
 				if err != nil {
-					file = m.styles.SymHover.Render(file + " -> ... " + fmt.Sprintf("%s", err))
+					file = m.styles.SymHover.Render(file + " -> " + fmt.Sprintf("%s", err))
 					break
 				}
 				file = m.styles.SymHover.Render(file + " -> " + target)
@@ -219,13 +222,17 @@ func (m Model) View() string {
 			case isSymlink:
 				target, err := filepath.EvalSymlinks(filepath.Join(m.currDir, file))
 				if err != nil {
-					file = m.styles.Symlink.Render(file + " -> ... " + fmt.Sprintf("%s", err))
+					file = m.styles.Symlink.Render(file + " -> " + fmt.Sprintf("%s", err))
 					break
 				}
 				file = m.styles.Symlink.Render(file + " -> " + target)
 			case i == m.idx:
 				hovered = m.styles.PathEnd.Render(file)
 				file = m.styles.Hover.Render(file)
+			}
+			fileSet, ok := m.selection[m.currDir]
+			if ok && fileSet.Contains(f.Name()) {
+				file = m.styles.Selected.Render(file)
 			}
 			files += file + "\n"
 		}

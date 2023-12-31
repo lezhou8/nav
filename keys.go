@@ -18,9 +18,10 @@ type KeyMap struct {
 	FilterOn     key.Binding
 	FilterOff    key.Binding
 	FilterAccept key.Binding
+	ToggleSelect key.Binding
 	Quit         key.Binding
 	ForceQuit    key.Binding
-	// TODO: select, copy, cut, paste, bulk rename
+	// TODO: copy, cut, paste, bulk rename
 }
 
 func DefaultKeyMap() KeyMap {
@@ -84,6 +85,10 @@ func DefaultKeyMap() KeyMap {
 		FilterAccept: key.NewBinding(
 			key.WithKeys("enter", "tab", "shift+tab", "ctrl+k", "up", "ctrl+j", "down"),
 			key.WithHelp("enter", "apply filter"),
+		),
+		ToggleSelect: key.NewBinding(
+			key.WithKeys(" "),
+			key.WithHelp("space", "toggle selection"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),

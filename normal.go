@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/deckarep/golang-set"
 )
 
 func (m Model) getFileLen() int {
@@ -126,6 +127,30 @@ func (m *Model) pgUp() {
 		diff := m.min - m.idx
 		m.min -= diff
 		m.max -= diff
+	}
+}
+
+func (m *Model) toggleSelect() {
+	var f string
+	if m.filterState == Unfiltered {
+		f = m.files[m.idx].Name()
+	} else if m.filterState == FilterApplied {
+		f = m.filteredFiles[m.idx].file.Name()
+	}
+	fileSet, ok := m.selection[m.currDir]
+	if !ok {
+		fileSet := mapset.NewSet()
+		fileSet.Add(f)
+		m.selection[m.currDir] = fileSet
+		return
+	}
+	if !fileSet.Contains(f) {
+		m.selection[m.currDir].Add(f)
+		return
+	}
+	fileSet.Remove(f)
+	if fileSet.Cardinality() == 0 {
+		delete(m.selection, m.currDir)
 	}
 }
 
@@ -270,6 +295,8 @@ func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterOn()
 		case key.Matches(msg, m.keys.FilterOff):
 			m.filterOff()
+		case key.Matches(msg, m.keys.ToggleSelect):
+			m.toggleSelect()
 		case key.Matches(msg, m.keys.Left):
 			return m.left()
 		case key.Matches(msg, m.keys.Right):

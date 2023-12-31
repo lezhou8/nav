@@ -13,6 +13,7 @@ type Styles struct {
 	SymHover        lipgloss.Style
 	PathEnd         lipgloss.Style
 	Filter          lipgloss.Style
+	Selected		lipgloss.Style
 	EmptyDir        lipgloss.Style
 }
 
@@ -26,12 +27,13 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 		Directory:       r.NewStyle().Foreground(lipgloss.Color("12")),
 		InaccessibleDir: r.NewStyle().Foreground(lipgloss.Color("9")),
 		Symlink:         r.NewStyle().Foreground(lipgloss.Color("10")),
-		Hover:           r.NewStyle().Underline(true),
+		Hover:           r.NewStyle().Background(lipgloss.Color("15")).Foreground(lipgloss.Color("0")),
 		Path:            r.NewStyle().Foreground(lipgloss.Color("12")).Bold(true),
-		DirHover:        r.NewStyle().Underline(true).Foreground(lipgloss.Color("12")),
-		SymHover:        r.NewStyle().Underline(true).Foreground(lipgloss.Color("10")),
+		DirHover:        r.NewStyle().Background(lipgloss.Color("12")).Foreground(lipgloss.Color("0")),
+		SymHover:        r.NewStyle().Background(lipgloss.Color("10")).Foreground(lipgloss.Color("0")),
 		PathEnd:         r.NewStyle().Bold(true),
 		Filter:          r.NewStyle().Foreground(lipgloss.Color("11")),
+		Selected:        r.NewStyle().Italic(true),
 		EmptyDir:        r.NewStyle().Foreground(lipgloss.Color("8")).SetString("Empty"),
 	}
 }
