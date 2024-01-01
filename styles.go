@@ -33,7 +33,7 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 		SymHover:        r.NewStyle().Background(lipgloss.Color("10")).Foreground(lipgloss.Color("0")),
 		PathEnd:         r.NewStyle().Bold(true),
 		Filter:          r.NewStyle().Foreground(lipgloss.Color("11")),
-		Selected:        r.NewStyle().Italic(true),
+		Selected:        r.NewStyle().Italic(true).Bold(true),
 		EmptyDir:        r.NewStyle().Foreground(lipgloss.Color("8")).SetString("Empty"),
 	}
 }

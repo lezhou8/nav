@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	HeightBuffer int    = 5
+	HeightBuffer int    = 7
 	XDGCacheDir  string = "$XDG_CACHE_HOME"
 	CacheSubDir  string = "nav"
 	CacheFile    string = ".nav_d"
@@ -84,6 +84,9 @@ type Model struct {
 	filteredFiles filteredFiles
 	filterInput   textinput.Model
 	selection     map[string]mapset.Set
+	copyBuffer    []string
+	isCutting     bool
+	news          string
 	id            int
 }
 
@@ -111,6 +114,9 @@ func New() Model {
 		filterState: Unfiltered,
 		filterInput: filterInput,
 		selection:   make(map[string]mapset.Set),
+		copyBuffer:  make([]string, 0),
+		isCutting:   false,
+		news:        "",
 		id:          nextID(),
 	}
 }
@@ -245,7 +251,7 @@ func (m Model) View() string {
 	if m.filterState == Filtering || m.filterState == FilterApplied {
 		filterBar = "\n" + m.styles.Filter.Render(m.filterInput.View()) + "\n"
 	}
-	return currPath + hovered + filterBar + files
+	return currPath + hovered + filterBar + files + "\n" + m.news + "\n"
 }
 
 func main() {

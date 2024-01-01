@@ -3,24 +3,28 @@ package main
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	Up           key.Binding
-	Down         key.Binding
-	Right        key.Binding
-	Left         key.Binding
-	GoToTop      key.Binding
-	GoToBot      key.Binding
-	PgDn         key.Binding
-	PgUp         key.Binding
-	HalfPgDn     key.Binding
-	HalfPgUp     key.Binding
-	ToggleDots   key.Binding
-	GoHome       key.Binding
-	FilterOn     key.Binding
-	FilterOff    key.Binding
-	FilterAccept key.Binding
-	ToggleSelect key.Binding
-	Quit         key.Binding
-	ForceQuit    key.Binding
+	Up              key.Binding
+	Down            key.Binding
+	Right           key.Binding
+	Left            key.Binding
+	GoToTop         key.Binding
+	GoToBot         key.Binding
+	PgDn            key.Binding
+	PgUp            key.Binding
+	HalfPgDn        key.Binding
+	HalfPgUp        key.Binding
+	ToggleDots      key.Binding
+	GoHome          key.Binding
+	FilterOn        key.Binding
+	FilterOff       key.Binding
+	FilterAccept    key.Binding
+	ToggleSelect    key.Binding
+	ToggleSelectAll key.Binding
+	Yank            key.Binding
+	Cut             key.Binding
+	Paste           key.Binding
+	Quit            key.Binding
+	ForceQuit       key.Binding
 	// TODO: copy, cut, paste, bulk rename
 }
 
@@ -89,6 +93,22 @@ func DefaultKeyMap() KeyMap {
 		ToggleSelect: key.NewBinding(
 			key.WithKeys(" "),
 			key.WithHelp("space", "toggle selection"),
+		),
+		ToggleSelectAll: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "toggle select all"),
+		),
+		Yank: key.NewBinding(
+			key.WithKeys("y"),
+			key.WithHelp("y", "yank"),
+		),
+		Cut: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "cut"),
+		),
+		Paste: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "paste"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),

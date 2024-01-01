@@ -105,6 +105,7 @@ func (m *Model) filterOff() {
 	m.filterState = Unfiltered
 	m.filterInput.Reset()
 	m.filteredFiles = nil
+	m.news = ""
 }
 
 func (m Model) filterMode(msg tea.Msg) (tea.Model, tea.Cmd) {

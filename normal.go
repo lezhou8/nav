@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,6 +16,29 @@ func (m Model) getFileLen() int {
 		return len(m.filteredFiles)
 	}
 	return len(m.files)
+}
+
+func getSelectedFilePaths(selection map[string]mapset.Set) []string {
+	var paths []string
+	for dir, fileSet := range selection {
+		for f := range fileSet.Iter() {
+			path := filepath.Join(dir, f.(string))
+			paths = append(paths, path)
+		}
+	}
+	return paths
+}
+
+func copyFile(src, dest string) error {
+	return nil
+}
+
+func copyDir(src, dest string) error {
+	return nil
+}
+
+func copySymlink(src, dest string) error {
+	return nil
 }
 
 func (m Model) quitRoutine() {
@@ -137,6 +161,7 @@ func (m *Model) toggleSelect() {
 	} else if m.filterState == FilterApplied {
 		f = m.filteredFiles[m.idx].file.Name()
 	}
+	m.down()
 	fileSet, ok := m.selection[m.currDir]
 	if !ok {
 		fileSet := mapset.NewSet()
@@ -152,6 +177,129 @@ func (m *Model) toggleSelect() {
 	if fileSet.Cardinality() == 0 {
 		delete(m.selection, m.currDir)
 	}
+}
+
+func (m *Model) toggleSelectAll() {
+	var fs []string
+	if m.filterState == Unfiltered {
+		for _, f := range m.files {
+			fs = append(fs, f.Name())
+		}
+	} else if m.filterState == FilterApplied {
+		for _, f := range m.filteredFiles {
+			fs = append(fs, f.file.Name())
+		}
+	}
+	fileSet, ok := m.selection[m.currDir]
+	if !ok {
+		fileSet := mapset.NewSet()
+		for _, f := range fs {
+			fileSet.Add(f)
+		}
+		m.selection[m.currDir] = fileSet
+		return
+	}
+	if fileSet.Cardinality() == len(fs) {
+		delete(m.selection, m.currDir)
+		return
+	}
+	for _, f := range fs {
+		fileSet.Add(f)
+	}
+}
+
+func (m *Model) yank() {
+	m.copyBuffer = make([]string, 0)
+	if len(m.selection) == 0 {
+		var currPath string
+		if m.filterState == Unfiltered {
+			currPath = filepath.Join(m.currDir, m.files[m.idx].Name())
+		} else if m.filterState == FilterApplied {
+			currPath = filepath.Join(m.currDir, m.filteredFiles[m.idx].file.Name())
+		} else {
+			m.news = "Yank error"
+			return
+		}
+		m.copyBuffer = append(m.copyBuffer, currPath)
+		m.news = "Yanked 1 file"
+		return
+	}
+	m.copyBuffer = getSelectedFilePaths(m.selection)
+	var plural string
+	copyBufferLen := len(m.copyBuffer)
+	if copyBufferLen == 1 {
+		plural = " file"
+	} else {
+		plural = " files"
+	}
+	m.news = "Yanked " + fmt.Sprintf("%d", len(m.copyBuffer)) + plural
+}
+
+func (m *Model) cut() {
+	m.yank()
+	cutAmount := len(m.copyBuffer)
+	if cutAmount == 1 {
+		m.news = "1 file ready to be cut and pasted"
+	} else if 1 < cutAmount {
+		m.news = fmt.Sprintf("%d", cutAmount) + " files ready to be cut and pasted"
+	} else {
+		m.news = "Cut error"
+	}
+	m.isCutting = true
+}
+
+func (m *Model) paste() {
+	if len(m.copyBuffer) == 0 {
+		m.news = "Nothing pasted"
+		return
+	}
+	dest := m.currDir
+	anyErrors := false
+	for _, f := range m.copyBuffer {
+		fInfo, err := os.Stat(f)
+		if err != nil {
+			anyErrors = true
+			continue
+		}
+		if fInfo.Mode()&os.ModeSymlink != 0 {
+			if err := copySymlink(f, dest); err != nil {
+				anyErrors = true
+			}
+		} else if fInfo.IsDir() {
+			if err := copyDir(f, dest); err != nil {
+				anyErrors = true
+			}
+		} else {
+			if err := copyFile(f, filepath.Join(dest, filepath.Base(f))); err != nil {
+				anyErrors = true
+			}
+		}
+	}
+	if !m.isCutting {
+		return
+	}
+	if anyErrors {
+		m.news = "Error while cutting and pasting"
+		return
+	}
+	for _, f := range m.copyBuffer {
+		fInfo, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		if fInfo.IsDir() {
+			err := os.RemoveAll(f)
+			if err != nil {
+				continue
+			}
+		} else {
+			err := os.Remove(f)
+			if err != nil {
+				continue
+			}
+		}
+	}
+	m.isCutting = false
 }
 
 func (m Model) left() (tea.Model, tea.Cmd) {
@@ -271,8 +419,11 @@ func (m Model) goHome() (tea.Model, tea.Cmd) {
 func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		oldNews := m.news
+		m.news = ""
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			m.news = oldNews
 			m.quitRoutine()
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Up):
@@ -297,6 +448,14 @@ func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterOff()
 		case key.Matches(msg, m.keys.ToggleSelect):
 			m.toggleSelect()
+		case key.Matches(msg, m.keys.ToggleSelectAll):
+			m.toggleSelectAll()
+		case key.Matches(msg, m.keys.Yank):
+			m.yank()
+		case key.Matches(msg, m.keys.Cut):
+			m.cut()
+		case key.Matches(msg, m.keys.Paste):
+			m.paste()
 		case key.Matches(msg, m.keys.Left):
 			return m.left()
 		case key.Matches(msg, m.keys.Right):
