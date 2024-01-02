@@ -173,7 +173,6 @@ func (m Model) View() string {
 	if err != nil {
 		currPath = fmt.Sprintf("Error displaying absolute path: %s", err)
 	}
-
 	currPath = m.styles.Path.Render(currPath)
 
 	if len(m.files) == 0 {
@@ -187,8 +186,7 @@ func (m Model) View() string {
 
 	files := ""
 	hovered := ""
-	switch m.filterState {
-	case Unfiltered, FilterApplied:
+	if m.filterState == Unfiltered || m.filterState == FilterApplied {
 		var filesIterate []os.DirEntry
 		if m.filterState == Unfiltered {
 			filesIterate = m.files
@@ -242,7 +240,7 @@ func (m Model) View() string {
 			}
 			files += file + "\n"
 		}
-	case Filtering:
+	} else {
 		for _, f := range m.filteredFiles {
 			files += m.styles.Filter.Render(f.file.Name()) + "\n"
 		}
@@ -251,7 +249,7 @@ func (m Model) View() string {
 	if m.filterState == Filtering || m.filterState == FilterApplied {
 		filterBar = "\n" + m.styles.Filter.Render(m.filterInput.View()) + "\n"
 	}
-	return currPath + hovered + filterBar + files + "\n" + m.news + "\n"
+	return currPath + hovered + filterBar + files + m.news + "\n"
 }
 
 func main() {

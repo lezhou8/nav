@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"io"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,8 +30,51 @@ func getSelectedFilePaths(selection map[string]mapset.Set) []string {
 	return paths
 }
 
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
 func copyFile(src, dest string) error {
-	return nil
+	pathAlreadyExists, err := pathExists(dest)
+	if err != nil {
+		return err
+	}
+	for pathAlreadyExists {
+		dest += "_"
+		pathAlreadyExists, err = pathExists(dest)
+		if err != nil {
+			return err
+		}
+	}
+	srcfile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcfile.Close()
+
+	destfile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer destfile.Close()
+
+	_, err = io.Copy(destfile, srcfile)
+	if err != nil {
+		return err
+	}
+
+	srcinfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(dest, srcinfo.Mode())
 }
 
 func copyDir(src, dest string) error {
@@ -253,6 +297,7 @@ func (m *Model) paste() {
 		m.news = "Nothing pasted"
 		return
 	}
+	dirEmpty := len(m.files) == 0
 	dest := m.currDir
 	anyErrors := false
 	for _, f := range m.copyBuffer {
@@ -262,7 +307,7 @@ func (m *Model) paste() {
 			continue
 		}
 		if fInfo.Mode()&os.ModeSymlink != 0 {
-			if err := copySymlink(f, dest); err != nil {
+			if err := copySymlink(f, filepath.Join(dest, filepath.Base(f))); err != nil {
 				anyErrors = true
 			}
 		} else if fInfo.IsDir() {
@@ -274,6 +319,9 @@ func (m *Model) paste() {
 				anyErrors = true
 			}
 		}
+	}
+	if dirEmpty {
+		m.idx = 0
 	}
 	if !m.isCutting {
 		return
@@ -456,6 +504,10 @@ func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cut()
 		case key.Matches(msg, m.keys.Paste):
 			m.paste()
+			if m.filterState == FilterApplied {
+				m.filterOff()
+			}
+			return m, m.readDir(m.currDir)
 		case key.Matches(msg, m.keys.Left):
 			return m.left()
 		case key.Matches(msg, m.keys.Right):
