@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"io"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,59 +30,106 @@ func getSelectedFilePaths(selection map[string]mapset.Set) []string {
 	return paths
 }
 
-func pathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
+func pathExistsGiveNew(path string) (string, error) {
+	for {
+		_, err := os.Stat(path)
+		if err == nil {
+			path += "_"
+			continue
+		}
+		if os.IsNotExist(err) {
+			return path, nil
+		}
+		return path, err
 	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
 }
 
 func copyFile(src, dest string) error {
-	pathAlreadyExists, err := pathExists(dest)
-	if err != nil {
-		return err
-	}
-	for pathAlreadyExists {
-		dest += "_"
-		pathAlreadyExists, err = pathExists(dest)
-		if err != nil {
-			return err
-		}
-	}
-	srcfile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcfile.Close()
-
-	destfile, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer destfile.Close()
-
-	_, err = io.Copy(destfile, srcfile)
+	dest, err := pathExistsGiveNew(dest)
 	if err != nil {
 		return err
 	}
 
-	srcinfo, err := os.Stat(src)
+	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	return os.Chmod(dest, srcinfo.Mode())
+	defer srcFile.Close()
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(dest, srcInfo.Mode())
 }
 
 func copyDir(src, dest string) error {
+	dest, err := pathExistsGiveNew(dest)
+	if err != nil {
+		return err
+	}
+
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(dest, srcInfo.Mode())
+	if err != nil {
+		return err
+	}
+
+	fs, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range fs {
+		srcfilePath := filepath.Join(src, f.Name())
+		destfilePath := filepath.Join(dest, f.Name())
+		fInfo, err := f.Info()
+		if err != nil {
+			continue
+		}
+		if f.IsDir() {
+			if err = copyDir(srcfilePath, destfilePath); err != nil {
+				continue
+			}
+		} else if fInfo.Mode()&os.ModeSymlink != 0 {
+			if err = copySymlink(srcfilePath, destfilePath); err != nil {
+				continue
+			}
+		} else {
+			if err = copyFile(srcfilePath, destfilePath); err != nil {
+				continue
+			}
+		}
+	}
 	return nil
 }
 
 func copySymlink(src, dest string) error {
-	return nil
+	dest, err := pathExistsGiveNew(dest)
+	if err != nil {
+		return err
+	}
+
+	target, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return err
+	}
+	return os.Symlink(target, dest)
 }
 
 func (m Model) quitRoutine() {
@@ -301,21 +348,22 @@ func (m *Model) paste() {
 	dest := m.currDir
 	anyErrors := false
 	for _, f := range m.copyBuffer {
-		fInfo, err := os.Stat(f)
+		fInfo, err := os.Lstat(f)
 		if err != nil {
 			anyErrors = true
 			continue
 		}
+		destFullPath := filepath.Join(dest, filepath.Base(f))
 		if fInfo.Mode()&os.ModeSymlink != 0 {
-			if err := copySymlink(f, filepath.Join(dest, filepath.Base(f))); err != nil {
+			if err := copySymlink(f, destFullPath); err != nil {
 				anyErrors = true
 			}
 		} else if fInfo.IsDir() {
-			if err := copyDir(f, dest); err != nil {
+			if err := copyDir(f, destFullPath); err != nil {
 				anyErrors = true
 			}
 		} else {
-			if err := copyFile(f, filepath.Join(dest, filepath.Base(f))); err != nil {
+			if err := copyFile(f, destFullPath); err != nil {
 				anyErrors = true
 			}
 		}
@@ -327,7 +375,7 @@ func (m *Model) paste() {
 		return
 	}
 	if anyErrors {
-		m.news = "Error while cutting and pasting"
+		m.news = "Error while pasting"
 		return
 	}
 	for _, f := range m.copyBuffer {

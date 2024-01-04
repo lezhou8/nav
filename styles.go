@@ -13,7 +13,7 @@ type Styles struct {
 	SymHover        lipgloss.Style
 	PathEnd         lipgloss.Style
 	Filter          lipgloss.Style
-	Selected		lipgloss.Style
+	Selected        lipgloss.Style
 	EmptyDir        lipgloss.Style
 }
 
