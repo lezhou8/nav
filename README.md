@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="600">
+</p>
+
 # Nav
 
 Minimal terminal file manager/navigator written in `go`
@@ -42,7 +46,7 @@ Zsh/Bash
 # Call this function whatever you like
 # Add to .zshrc, .bashrc, or equivalent
 
-function navcd() {
+navcd() {
 	nav "$@"
 	cd "$(cat "${XDG_CACHE_HOME:=${HOME}/.cache}/nav/.nav_d")"
 }
@@ -62,6 +66,9 @@ bindkey -s "^n" "navcd\n"
 - [lipgloss](https://github.com/charmbracelet/lipgloss)
 - [fuzzy](https://github.com/sahilm/fuzzy)
 - [golang-set](https://github.com/deckarep/golang-set)
+
+## Dependencies
+- [Go](https://golang.org/)
 
 ## Acknowledgement
 
