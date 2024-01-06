@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	HeightBuffer int    = 7
-	XDGCacheDir  string = "$XDG_CACHE_HOME"
-	CacheSubDir  string = "nav"
-	CacheFile    string = ".nav_d"
+	HeightBuffer        int    = 7
+	XDGCacheDir         string = "$XDG_CACHE_HOME"
+	CacheSubDir         string = "nav"
+	CacheFile           string = ".nav_d"
+	BulkRenameCacheFile string = ".nav_bulk_rename"
 )
 
 var (
@@ -57,7 +58,11 @@ func (m Model) readDir(path string) tea.Cmd {
 		}
 		var filtered []os.DirEntry
 		for _, f := range dirEntries {
-			if f.Name()[0] != '.' {
+			isHidden, err := isHidden(filepath.Join(path, f.Name()))
+			if err != nil {
+				continue
+			}
+			if !isHidden {
 				filtered = append(filtered, f)
 			}
 		}

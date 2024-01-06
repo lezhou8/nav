@@ -25,7 +25,7 @@ type KeyMap struct {
 	Paste           key.Binding
 	Quit            key.Binding
 	ForceQuit       key.Binding
-	// TODO: bulk rename, copy to environment variable, loading animation progress bar
+	// TODO: testing, readme, release
 }
 
 func DefaultKeyMap() KeyMap {

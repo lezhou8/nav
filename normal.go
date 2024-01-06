@@ -6,7 +6,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/deckarep/golang-set"
@@ -42,6 +44,17 @@ func pathExistsGiveNew(path string) (string, error) {
 		}
 		return path, err
 	}
+}
+
+func flattenSelected(selected map[string]mapset.Set) string {
+	s := ""
+	for dir, filesSet := range selected {
+		for file := range filesSet.Iter() {
+			s += filepath.Join(dir, file.(string)) + "\n"
+		}
+	}
+	s = s[:len(s)-1]
+	return s
 }
 
 func copyFile(src, dest string) error {
@@ -133,25 +146,23 @@ func copySymlink(src, dest string) error {
 }
 
 func (m Model) quitRoutine() {
-	cacheDir := os.Getenv(XDGCacheDir)
-	if cacheDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		cacheDir = filepath.Join(homeDir, ".cache")
+	if len(m.selection) != 0 {
+		s := strings.Replace(flattenSelected(m.selection), "\n", " ", -1)
+		clipboard.WriteAll(s)
 	}
-	subDir := filepath.Join(cacheDir, CacheSubDir)
-	err := os.MkdirAll(subDir, 0755)
+
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fp := filepath.Join(subDir, CacheFile)
+
+	fp := filepath.Join(cacheDir, CacheSubDir, CacheFile)
 	f, err := os.Create(fp)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
 	data := []byte(m.currDir + "\n")
 	_, err = f.Write(data)
 	if err != nil {
@@ -396,6 +407,9 @@ func (m *Model) paste() {
 		}
 	}
 	m.isCutting = false
+	if m.filterState == FilterApplied {
+		m.filterOff()
+	}
 }
 
 func (m Model) left() (tea.Model, tea.Cmd) {
@@ -552,9 +566,6 @@ func (m Model) normalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cut()
 		case key.Matches(msg, m.keys.Paste):
 			m.paste()
-			if m.filterState == FilterApplied {
-				m.filterOff()
-			}
 			return m, m.readDir(m.currDir)
 		case key.Matches(msg, m.keys.Left):
 			return m.left()
