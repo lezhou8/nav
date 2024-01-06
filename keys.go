@@ -25,7 +25,7 @@ type KeyMap struct {
 	Paste           key.Binding
 	Quit            key.Binding
 	ForceQuit       key.Binding
-	// TODO: testing, readme, release
+	// TODO: testing, readme, gifs in readme, release
 }
 
 func DefaultKeyMap() KeyMap {

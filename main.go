@@ -254,7 +254,8 @@ func (m Model) View() string {
 	if m.filterState == Filtering || m.filterState == FilterApplied {
 		filterBar = "\n" + m.styles.Filter.Render(m.filterInput.View()) + "\n"
 	}
-	return currPath + hovered + filterBar + files + m.news + "\n"
+	news := m.styles.News.Render(m.news)
+	return currPath + hovered + filterBar + files + news + "\n"
 }
 
 func main() {

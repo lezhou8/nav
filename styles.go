@@ -14,6 +14,7 @@ type Styles struct {
 	PathEnd         lipgloss.Style
 	Filter          lipgloss.Style
 	Selected        lipgloss.Style
+	News			lipgloss.Style
 	EmptyDir        lipgloss.Style
 }
 
@@ -34,6 +35,7 @@ func DefaultStylesWithRenderer(r *lipgloss.Renderer) Styles {
 		PathEnd:         r.NewStyle().Bold(true),
 		Filter:          r.NewStyle().Foreground(lipgloss.Color("11")),
 		Selected:        r.NewStyle().Italic(true).Bold(true),
+		News:			 r.NewStyle().Italic(true),
 		EmptyDir:        r.NewStyle().Foreground(lipgloss.Color("8")).SetString("Empty"),
 	}
 }
