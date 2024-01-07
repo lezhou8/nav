@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	HeightBuffer        int    = 7
-	XDGCacheDir         string = "$XDG_CACHE_HOME"
-	CacheSubDir         string = "nav"
-	CacheFile           string = ".nav_d"
-	BulkRenameCacheFile string = ".nav_bulk_rename"
+	HeightBuffer int    = 7
+	XDGCacheDir  string = "$XDG_CACHE_HOME"
+	CacheSubDir  string = "nav"
+	CacheFile    string = ".nav_d"
+	EnvCacheFile string = ".nav_env"
 )
 
 var (

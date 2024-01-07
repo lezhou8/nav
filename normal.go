@@ -146,11 +146,6 @@ func copySymlink(src, dest string) error {
 }
 
 func (m Model) quitRoutine() {
-	if len(m.selection) != 0 {
-		s := strings.Replace(flattenSelected(m.selection), "\n", " ", -1)
-		clipboard.WriteAll(s)
-	}
-
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		log.Fatal(err)
@@ -165,6 +160,25 @@ func (m Model) quitRoutine() {
 
 	data := []byte(m.currDir + "\n")
 	_, err = f.Write(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(m.selection) == 0 {
+		return
+	}
+	s := strings.Replace(flattenSelected(m.selection), "\n", " ", -1)
+	clipboard.WriteAll(s)
+
+	saveEnvFp := filepath.Join(cacheDir, CacheSubDir, EnvCacheFile)
+	saveEnvF, err := os.Create(saveEnvFp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer saveEnvF.Close()
+
+	saveEnvData := []byte(s)
+	_, err = saveEnvF.Write(saveEnvData)
 	if err != nil {
 		log.Fatal(err)
 	}
