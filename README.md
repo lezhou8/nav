@@ -27,7 +27,7 @@ Nav does not perform operations such as deleting files (`rm`), previewing files 
 <img src="assets/select_demo.gif" alt="select_demo">
 </p>
 
-Nav does however allow to copy and paste/move around files because that would be inconvenient using the above method.
+Nav does, however, allow copying and pasting/moving around files because that would be inconvenient using the above method.
 
 ## Installation
 
