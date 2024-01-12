@@ -445,16 +445,22 @@ func (m Model) left() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) right() (tea.Model, tea.Cmd) {
-	info, err := m.files[m.idx].Info()
+	var f os.DirEntry
+	if m.filterState == Unfiltered {
+		f = m.files[m.idx]
+	} else if m.filterState == FilterApplied {
+		f = m.filteredFiles[m.idx].file
+	}
+	info, err := f.Info()
 	if err != nil {
 		return m, nil
 	}
 	isSymlink := info.Mode()&os.ModeSymlink != 0
-	if len(m.files) == 0 || (!m.files[m.idx].IsDir() && !isSymlink) {
+	if len(m.files) == 0 || (!f.IsDir() && !isSymlink) {
 		return m, nil
 	}
 	oldDir := m.currDir
-	newPath := filepath.Join(m.currDir, m.files[m.idx].Name())
+	newPath := filepath.Join(m.currDir, f.Name())
 	if !isDirAccessible(newPath) {
 		return m, nil
 	}
