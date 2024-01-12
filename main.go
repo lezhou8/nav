@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set"
 )
 
 const (

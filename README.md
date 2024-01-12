@@ -1,6 +1,4 @@
-<p>
 <img src="assets/logo.png" alt="nav" width="500">
-</p>
 
 ## About
 
@@ -29,9 +27,15 @@ Nav does not perform operations such as deleting files (`rm`), previewing files 
 
 Nav does, however, allow copying and pasting/moving around files because that would be inconvenient using the above method.
 
+For multiple selections you may have to do this:
+
+```{sh}
+echo $N | xargs cat # replace cat with program of your choice
+```
+
 ## Installation
 
-```{go}
+```{sh}
 go install github.com/lezhou8/nav@latest
 ```
 
