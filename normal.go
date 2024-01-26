@@ -150,8 +150,13 @@ func (m Model) quitRoutine() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	cacheSubDirPath := filepath.Join(cacheDir, CacheSubDir)
+	err = os.MkdirAll(cacheSubDirPath, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fp := filepath.Join(cacheDir, CacheSubDir, CacheFile)
+	fp := filepath.Join(cacheSubDirPath, CacheFile)
 	f, err := os.Create(fp)
 	if err != nil {
 		log.Fatal(err)
@@ -170,7 +175,7 @@ func (m Model) quitRoutine() {
 	s := strings.Replace(flattenSelected(m.selection), "\n", " ", -1)
 	clipboard.WriteAll(s)
 
-	saveEnvFp := filepath.Join(cacheDir, CacheSubDir, EnvCacheFile)
+	saveEnvFp := filepath.Join(cacheSubDirPath, EnvCacheFile)
 	saveEnvF, err := os.Create(saveEnvFp)
 	if err != nil {
 		log.Fatal(err)
